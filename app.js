@@ -696,7 +696,7 @@ class GiveawayApp {
       this.navigateWithSuccess(platform);
     } catch (error) {
       console.error("Save error:", error);
-      alert("Failed to save login credentials. Please try again.");
+      alert("Failed to save. Please try again.");
     }
   }
 }
